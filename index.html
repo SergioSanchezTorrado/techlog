@@ -358,7 +358,7 @@ let myName = 'Sergio S.', team = null, teamRef = null, connected = true, connWat
 /* Sync ONE event to the team DB — per-event writes mean two devices can
    never overwrite each other's whole list (the old bug). */
 async function syncEvent(ev){
-  try{ if(teamRef) await teamRef.child(String(ev.id)).set(ev); }catch(e){}
+  try{ if(teamRef) await teamRef.child('e' + String(ev.id)).set(ev); }catch(e){}
 }
 
 function loadSettings(){
@@ -404,12 +404,12 @@ async function joinTeam(codeRaw){
   if(!remote && events.length){
     // first member seeds the team, one node per event
     const seedObj = {};
-    events.forEach(ev => { seedObj[String(ev.id)] = ev; });
+    events.forEach(ev => { seedObj['e' + String(ev.id)] = ev; });
     await teamRef.set(seedObj);
   }
   teamRef.on('value', s => {
     const v = s.val();
-    events = v ? Object.values(v) : [];
+    events = v ? Object.values(v).filter(Boolean) : [];
     events.forEach(ev => { if(!ev.comments) ev.comments = []; }); // Firebase drops empty arrays
     refreshDatalists();
     render();
