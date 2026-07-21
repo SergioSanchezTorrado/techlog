@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TechLog — Equipment Event Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EDF0F3;
+    --panel:#FFFFFF;
+    --ink:#16212B;
+    --ink-soft:#5A6873;
+    --line:#D5DCE3;
+    --blue:#0B5FA5;
+    --blue-deep:#08466F;
+    --alarm:#C42B1C;
+    --amber:#B45309;
+    --ok:#1A7F37;
+    --tag-bg:#F2F5F7;
+    --radius:10px;
+    --font-display:'Archivo',system-ui,sans-serif;
+    --font-body:'Inter',system-ui,sans-serif;
+    --font-mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5;touch-action:manipulation}
+  button{font-family:inherit;cursor:pointer}
+  input,select,textarea{font-family:inherit;font-size:16px}
+
+  /* ---------- Header ---------- */
+  header{
+    background:var(--blue-deep);
+    color:#fff;
+    padding:14px 20px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand-mark{
+    font-family:var(--font-mono);font-weight:600;font-size:13px;
+    border:1.5px solid rgba(255,255,255,.55);border-radius:6px;
+    padding:5px 9px;letter-spacing:.08em;
+  }
+  .brand h1{font-family:var(--font-display);font-weight:800;font-size:19px;letter-spacing:.01em}
+  .brand small{display:block;font-family:var(--font-body);font-weight:400;font-size:12px;opacity:.75;letter-spacing:.02em}
+  .team-chip{
+    display:flex;align-items:center;gap:8px;
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);
+    border-radius:99px;padding:6px 14px;font-size:12.5px;
+    color:#fff;cursor:pointer;font-family:inherit;
+  }
+  .team-chip:hover{background:rgba(255,255,255,.2)}
+  .team-chip .dot{width:8px;height:8px;border-radius:50%;background:#5BD98A;flex:none}
+
+  /* ---------- Layout ---------- */
+  main{max-width:960px;margin:0 auto;padding:20px 16px 60px}
+
+  /* ---------- Stats strip ---------- */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+  .stat{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px 14px;border-top:3px solid var(--line);
+  }
+  .stat.open{border-top-color:var(--alarm)}
+  .stat.progress{border-top-color:var(--amber)}
+  .stat.closed{border-top-color:var(--ok)}
+  .stat b{font-family:var(--font-display);font-size:26px;font-weight:800;display:block;line-height:1.1}
+  .stat span{font-size:11.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.07em;font-weight:600}
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .tabs{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:3px;gap:2px}
+  .tabs button{
+    border:none;background:transparent;border-radius:99px;padding:7px 16px;
+    font-size:13px;font-weight:600;color:var(--ink-soft);
+  }
+  .tabs button.active{background:var(--blue);color:#fff}
+  .tabs button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+  .toolbar .spacer{flex:1}
+  .btn-new{
+    background:var(--alarm);color:#fff;border:none;border-radius:8px;
+    font-family:var(--font-display);font-weight:700;font-size:14px;
+    padding:10px 18px;letter-spacing:.02em;
+    box-shadow:0 2px 6px rgba(196,43,28,.3);
+  }
+  .btn-new:hover{background:#A82418}
+  #searchBox{
+    border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:170px;background:var(--panel);
+  }
+
+  /* ---------- Event cards ---------- */
+  .event-list{display:flex;flex-direction:column;gap:10px}
+  .event{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    display:flex;overflow:hidden;cursor:pointer;transition:box-shadow .15s;
+  }
+  .event:hover{box-shadow:0 3px 12px rgba(22,33,43,.1)}
+  .andon{width:6px;flex:none}
+  .andon.Open{background:var(--alarm)}
+  .andon.In-Progress{background:var(--amber)}
+  .andon.Closed{background:var(--ok)}
+  .event-body{padding:13px 16px;flex:1;min-width:0}
+  .event-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:5px}
+  .machine-tag{
+    font-family:var(--font-mono);font-size:11.5px;font-weight:600;letter-spacing:.05em;
+    background:var(--tag-bg);border:1px solid var(--line);border-radius:5px;
+    padding:3px 8px;color:var(--blue-deep);
+    box-shadow:inset 0 1px 2px rgba(22,33,43,.08);
+  }
+  .etype{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft)}
+  .event h3{font-family:var(--font-display);font-size:15.5px;font-weight:700;margin-bottom:4px}
+  .event-meta{font-size:12.5px;color:var(--ink-soft);font-family:var(--font-mono)}
+  .status-pill{
+    margin-left:auto;flex:none;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    border-radius:99px;padding:4px 11px;
+  }
+  .status-pill.Open{background:#FBEAE8;color:var(--alarm)}
+  .status-pill.In-Progress{background:#FCF0E0;color:var(--amber)}
+  .status-pill.Closed{background:#E5F3E9;color:var(--ok)}
+  .empty{
+    text-align:center;color:var(--ink-soft);padding:44px 20px;background:var(--panel);
+    border:1px dashed var(--line);border-radius:var(--radius);font-size:14px;
+  }
+
+  /* ---------- Detail / Form panel ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(22,33,43,.45);display:none;
+    align-items:flex-start;justify-content:center;padding:24px 12px;overflow-y:auto;z-index:50;
+  }
+  .overlay.show{display:flex}
+  .sheet{
+    background:var(--panel);border-radius:14px;max-width:620px;width:100%;
+    padding:22px;margin-top:2vh;box-shadow:0 10px 40px rgba(22,33,43,.3);
+  }
+  .sheet-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:16px}
+  .sheet-head h2{font-family:var(--font-display);font-weight:800;font-size:18px;flex:1}
+  .btn-x{border:none;background:var(--tag-bg);border-radius:8px;width:32px;height:32px;font-size:16px;color:var(--ink-soft)}
+
+  .field{margin-bottom:13px}
+  .field label{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:5px}
+  .field input,.field select,.field textarea{
+    width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:#FBFCFD;
+  }
+  .field textarea{min-height:74px;resize:vertical}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--blue);border-color:var(--blue)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .btn-primary{
+    width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;
+    font-family:var(--font-display);font-weight:700;font-size:15px;padding:12px;margin-top:4px;
+  }
+  .btn-primary:hover{background:var(--blue-deep)}
+
+  /* detail view */
+  .d-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+  .d-block{background:var(--tag-bg);border:1px solid var(--line);border-radius:8px;padding:11px 13px;margin-bottom:10px}
+  .d-block h4{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);margin-bottom:4px}
+  .d-block p{font-size:14px;white-space:pre-wrap}
+  .d-block.sol{border-left:3px solid var(--ok)}
+  .d-actions{display:flex;gap:8px;margin:14px 0}
+  .d-actions button{
+    flex:1;border:1px solid var(--line);background:var(--panel);border-radius:8px;
+    padding:9px;font-weight:600;font-size:13px;
+  }
+  .d-actions .act-progress{color:var(--amber);border-color:#EBD4B4}
+  .d-actions .act-close{color:var(--ok);border-color:#BFE0C8}
+  .d-actions .act-reopen{color:var(--alarm);border-color:#EFC7C2}
+
+  /* comments */
+  .comments h4{font-family:var(--font-display);font-size:14px;font-weight:700;margin:16px 0 8px;padding-top:14px;border-top:1px solid var(--line)}
+  .comment{display:flex;gap:9px;margin-bottom:10px}
+  .avatar{
+    width:30px;height:30px;border-radius:50%;background:var(--blue-deep);color:#fff;flex:none;
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:var(--font-display);
+  }
+  .comment .bubble{background:var(--tag-bg);border-radius:0 10px 10px 10px;padding:8px 12px;flex:1}
+  .comment .who{font-size:12px;font-weight:700}
+  .comment .when{font-size:11px;color:var(--ink-soft);font-family:var(--font-mono);margin-left:6px;font-weight:400}
+  .comment p{font-size:13.5px;margin-top:2px}
+  .comment-form{display:flex;gap:8px;margin-top:10px}
+  .comment-form input{flex:1;border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+  .comment-form button{background:var(--blue);color:#fff;border:none;border-radius:8px;padding:0 16px;font-weight:600}
+
+  .photo-strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .photo-thumb{position:relative;width:74px;height:74px;border-radius:8px;overflow:hidden;border:1px solid var(--line);cursor:pointer;background:var(--tag-bg)}
+  .photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .photo-thumb .rm{position:absolute;top:3px;right:3px;background:rgba(22,33,43,.75);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;line-height:1}
+  .lightbox{position:fixed;inset:0;background:rgba(10,15,20,.9);display:none;align-items:center;justify-content:center;z-index:120;cursor:zoom-out}
+  .lightbox.show{display:flex}
+  .lightbox img{max-width:94vw;max-height:90vh;border-radius:10px}
+
+  .toast{
+    position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(80px);
+    background:var(--ink);color:#fff;border-radius:99px;padding:10px 20px;font-size:13.5px;font-weight:600;
+    transition:transform .25s;z-index:99;
+  }
+  .toast.show{transform:translateX(-50%) translateY(0)}
+
+  footer{max-width:960px;margin:0 auto;padding:0 16px 26px;font-size:11.5px;color:var(--ink-soft);font-family:var(--font-mono)}
+
+  @media(max-width:560px){
+    .stats{grid-template-columns:repeat(3,1fr);gap:7px}
+    .stat b{font-size:20px}
+    .row2{grid-template-columns:1fr}
+    #searchBox{min-width:0;flex:1}
+    .status-pill{margin-left:0}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *{transition:none!important}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">TL-01</div>
+    <div>
+      <h1>TechLog</h1>
+      <small>Equipment Event Log · Maintenance Team</small>
+    </div>
+  </div>
+  <button class="team-chip" id="btnTeam"><span class="dot" id="teamDot"></span> <span id="teamLabel">Local mode — tap to join a team</span></button>
+</header>
+
+<main>
+  <div class="stats">
+    <div class="stat open"><b id="stOpen">0</b><span>Open</span></div>
+    <div class="stat progress"><b id="stProg">0</b><span>In progress</span></div>
+    <div class="stat closed"><b id="stClosed">0</b><span>Closed</span></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="tabs" role="tablist">
+      <button class="active" data-f="problems" role="tab">Problems</button>
+      <button data-f="all" role="tab">All</button>
+      <button data-f="closed" role="tab">Closed</button>
+    </div>
+    <input id="searchBox" type="search" placeholder="Search events…" aria-label="Search events">
+    <div class="spacer"></div>
+    <button class="btn-new" id="btnNew">+ Log event</button>
+  </div>
+
+  <div class="event-list" id="list"></div>
+</main>
+
+<footer>PROTOTYPE v0.1 — data stays on this device. Built for demo purposes.</footer>
+
+<!-- New event sheet -->
+<div class="overlay" id="ovForm">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Log new event</h2>
+      <button class="btn-x" data-close="ovForm" aria-label="Close">✕</button>
+    </div>
+    <div class="field"><label>Problem summary</label><input id="fTitle" maxlength="90" placeholder="e.g. Chiller 2 temperature alarm"></div>
+    <div class="row2">
+      <div class="field"><label>Date</label><input id="fDate" type="date"></div>
+      <div class="field"><label>Hour</label><input id="fTime" type="time"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Machine</label>
+        <input id="fMachine" list="dlMachines" placeholder="Type the machine name…" maxlength="60" autocomplete="off">
+        <datalist id="dlMachines"></datalist>
+      </div>
+      <div class="field"><label>Event type</label>
+        <input id="fType" list="dlTypes" placeholder="Type the event…" maxlength="40" autocomplete="off">
+        <datalist id="dlTypes"></datalist>
+      </div>
+    </div>
+    <div class="field"><label>What happened</label><textarea id="fDesc" placeholder="Describe the problem…"></textarea></div>
+    <div class="field"><label>Proposed solution (optional)</label><textarea id="fSol" placeholder="How can it be solved?"></textarea></div>
+    <div class="field"><label>Photos (optional, up to 4)</label>
+      <input id="fPhotos" type="file" accept="image/*" capture="environment" multiple>
+      <div class="photo-strip" id="photoPreview"></div>
+    </div>
+    <button class="btn-primary" id="btnSave">Save event</button>
+  </div>
+</div>
+
+<!-- Detail sheet -->
+<div class="overlay" id="ovDetail">
+  <div class="sheet" id="detailSheet"></div>
+</div>
+
+<!-- Team sheet -->
+<div class="overlay" id="ovTeam">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Team</h2>
+      <button class="btn-x" data-close="ovTeam" aria-label="Close">✕</button>
+    </div>
+    <div class="field"><label>Your name (shown on reports & comments)</label><input id="tName" maxlength="30" placeholder="e.g. Sergio S."></div>
+    <div class="d-block" id="teamStatus"></div>
+    <div class="field"><label>Team code</label><input id="tCode" maxlength="8" placeholder="e.g. VIA123" style="text-transform:uppercase" autocomplete="off"></div>
+    <div class="d-actions" style="margin-top:4px">
+      <button class="act-close" id="btnJoin">Join team</button>
+      <button id="btnCreate">Create new team</button>
+      <button class="act-reopen" id="btnLeave">Leave</button>
+    </div>
+    <p style="font-size:12.5px;color:var(--ink-soft)" id="teamNote">Anyone who enters the same code sees the same events, live.</p>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox"><img alt="Event photo"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ storage adapter: Claude artifact → localStorage → memory ============ */
+const KEY = 'techlog-events-v1';
+const store = {
+  mem: null,
+  async load(){
+    try{
+      if(window.storage){ const r = await window.storage.get(KEY); return JSON.parse(r.value); }
+    }catch(e){}
+    try{
+      const r = localStorage.getItem(KEY); if(r) return JSON.parse(r);
+    }catch(e){}
+    return this.mem;
+  },
+  async save(data){
+    this.mem = data;
+    try{ if(teamRef){ await teamRef.set(data); } }catch(e){}
+    try{ if(window.storage){ await window.storage.set(KEY, JSON.stringify(data)); return; } }catch(e){}
+    try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){}
+  }
+};
+
+/* ============ TEAM SYNC (optional — requires 5-min Firebase setup) ============
+   Without this, "Join team" politely explains sync isn't configured yet.
+   To enable shared team data:
+   1) Go to console.firebase.google.com → Add project (any name, Analytics off)
+   2) Build → Realtime Database → Create database → start in TEST MODE
+   3) Project settings (gear) → Your apps → Web app (</> icon) → register → copy the config
+   4) Replace `null` below with that config object, e.g.:
+      const FIREBASE_CONFIG = {
+        apiKey: "AIza...",
+        authDomain: "techlog-demo.firebaseapp.com",
+        databaseURL: "https://techlog-demo-default-rtdb.firebaseio.com",
+        projectId: "techlog-demo",
+        appId: "1:1234:web:abcd"
+      };
+   NOTE: test-mode rules are open to anyone who has the database URL.
+   Fine for a demo with fake data — NOT for real company data. */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCLvIQYp6P4InP-Ft6ljNVvFoq6naFnZ9A",
+  authDomain: "techlog-demo.firebaseapp.com",
+  databaseURL: "https://techlog-demo-default-rtdb.firebaseio.com",
+  projectId: "techlog-demo",
+  storageBucket: "techlog-demo.firebasestorage.app",
+  messagingSenderId: "33907849717",
+  appId: "1:33907849717:web:a577bc157ad67fbbc1c8bc"
+};
+
+const SETTINGS_KEY = 'techlog-settings-v1';
+let myName = 'Sergio S.', team = null, teamRef = null;
+
+function loadSettings(){
+  try{
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+    if(s){ myName = s.name || myName; team = s.team || null; }
+  }catch(e){}
+}
+function saveSettings(){
+  try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify({ name: myName, team })); }catch(e){}
+}
+function loadScript(src){
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+async function ensureFirebase(){
+  if(!FIREBASE_CONFIG) return false;
+  if(!window.firebase){
+    await loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
+    await loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js');
+  }
+  if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+  return true;
+}
+async function joinTeam(codeRaw){
+  const code = (codeRaw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if(code.length < 4){ toast('Code must be 4–8 letters/numbers'); return; }
+  let ok = false;
+  try{ ok = await ensureFirebase(); }catch(e){ ok = false; }
+  if(!ok){
+    document.getElementById('teamNote').textContent = 'Team sync is not configured yet — open the file and follow the FIREBASE_CONFIG note at the top of the script (5-minute setup), then redeploy.';
+    toast('Sync not configured yet');
+    return;
+  }
+  if(teamRef) teamRef.off();
+  team = code;
+  teamRef = firebase.database().ref('teams/' + code + '/events');
+  const snap = await teamRef.once('value');
+  const remote = snap.val();
+  if((!remote || !remote.length) && events.length){
+    await teamRef.set(events); // first member seeds the team with their data
+  }
+  teamRef.on('value', s => {
+    events = s.val() || [];
+    refreshDatalists();
+    render();
+  });
+  saveSettings();
+  updateTeamUI();
+  toast('Joined team ' + code);
+}
+function leaveTeam(){
+  if(teamRef){ teamRef.off(); teamRef = null; }
+  team = null;
+  saveSettings();
+  updateTeamUI();
+  toast('Back to local mode');
+}
+function updateTeamUI(){
+  document.getElementById('teamLabel').textContent = team ? ('Team ' + team + ' · shared data') : 'Local mode — tap to join a team';
+  document.getElementById('teamDot').style.background = team ? '#5BD98A' : '#F2C94C';
+  const st = document.getElementById('teamStatus');
+  if(st) st.innerHTML = team
+    ? `<h4>Status</h4><p>Connected to team <b>${esc(team)}</b>. Everyone who joins with this code sees the same events, live.</p>`
+    : `<h4>Status</h4><p>Local mode — data lives only on this device. Join or create a team to share.</p>`;
+}
+
+/* ============ state ============ */
+
+let events = [];
+let filter = 'problems';
+let search = '';
+let pendingPhotos = [];
+
+const DEFAULT_MACHINES = ['Chiller 2 (CH-02)', 'HVAC Unit 1 (AHU-01)', 'Purified Water Loop (PW-01)', 'Compressor A (CMP-A)', 'Autoclave 3 (AC-03)', 'Tablet Press 5 (TP-05)'];
+const DEFAULT_TYPES = ['Breakdown', 'Alarm', 'Preventive maintenance', 'Calibration', 'Inspection'];
+
+function refreshDatalists(){
+  const machines = [...new Set([...events.map(e => e.machine), ...DEFAULT_MACHINES])].filter(Boolean).sort();
+  const types = [...new Set([...events.map(e => e.type), ...DEFAULT_TYPES])].filter(Boolean).sort();
+  document.getElementById('dlMachines').innerHTML = machines.map(m => `<option value="${esc(m)}">`).join('');
+  document.getElementById('dlTypes').innerHTML = types.map(t => `<option value="${esc(t)}">`).join('');
+}
+
+function compressImage(file){
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const max = 900;
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      resolve(c.toDataURL('image/jpeg', 0.72));
+    };
+    img.onerror = () => { URL.revokeObjectURL(img.src); resolve(null); };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function renderPhotoPreview(){
+  document.getElementById('photoPreview').innerHTML = pendingPhotos.map((p, i) => `
+    <div class="photo-thumb"><img src="${p}" alt="Photo ${i + 1}">
+      <button class="rm" data-rm="${i}" aria-label="Remove photo">✕</button>
+    </div>`).join('');
+  document.querySelectorAll('#photoPreview [data-rm]').forEach(b => b.addEventListener('click', () => {
+    pendingPhotos.splice(Number(b.dataset.rm), 1);
+    renderPhotoPreview();
+  }));
+}
+
+const seed = () => ([
+  {
+    id: 1, title: 'Chiller 2 high temperature alarm', machine: 'Chiller 2 (CH-02)', type: 'Alarm',
+    date: today(-1), time: '06:40', desc: 'Supply water temp reached 9.8 °C during night shift. Alarm triggered twice, auto-reset both times.',
+    sol: '', status: 'Open', by: 'M. Rivera',
+    comments: [
+      { who: 'M. Rivera', when: today(-1) + ' 06:52', text: 'Logged from the floor. Second time this week.' },
+      { who: 'L. Ortiz', when: today(-1) + ' 07:15', text: 'Could be the condenser fan again. I can check after lunch.' }
+    ]
+  },
+  {
+    id: 2, title: 'AHU-01 filter differential pressure high', machine: 'HVAC Unit 1 (AHU-01)', type: 'Preventive maintenance',
+    date: today(-2), time: '14:10', desc: 'ΔP across pre-filters above 250 Pa. Scheduled replacement needed before it affects room pressure cascade.',
+    sol: 'Replace pre-filter bank, verify ΔP < 120 Pa after swap.', status: 'In Progress', by: 'L. Ortiz',
+    comments: [{ who: 'J. Meléndez', when: today(-2) + ' 15:03', text: 'Filters are in stock, rack B4.' }]
+  },
+  {
+    id: 3, title: 'Autoclave 3 door gasket leak', machine: 'Autoclave 3 (AC-03)', type: 'Breakdown',
+    date: today(-6), time: '09:25', desc: 'Steam visible at door seal during sterilization cycle. Cycle aborted.',
+    sol: 'Replaced door gasket (P/N GSK-3310), ran empty validation cycle — passed.', status: 'Closed', by: 'Sergio S.',
+    comments: [
+      { who: 'Sergio S.', when: today(-6) + ' 09:40', text: 'Tagged out. Gasket visibly cracked.' },
+      { who: 'M. Rivera', when: today(-5) + ' 11:20', text: 'Validation cycle passed, releasing back to production.' }
+    ]
+  }
+]);
+
+function today(offsetDays = 0){
+  const d = new Date(); d.setDate(d.getDate() + offsetDays);
+  return d.toISOString().slice(0, 10);
+}
+function esc(s){ const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ============ render ============ */
+function counts(){
+  document.getElementById('stOpen').textContent = events.filter(e => e.status === 'Open').length;
+  document.getElementById('stProg').textContent = events.filter(e => e.status === 'In Progress').length;
+  document.getElementById('stClosed').textContent = events.filter(e => e.status === 'Closed').length;
+}
+
+function visible(){
+  return events
+    .filter(e => filter === 'all' ? true : filter === 'closed' ? e.status === 'Closed' : e.status !== 'Closed')
+    .filter(e => !search || (e.title + ' ' + e.machine + ' ' + e.desc).toLowerCase().includes(search))
+    .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+}
+
+function render(){
+  counts();
+  const list = document.getElementById('list');
+  const rows = visible();
+  if(!rows.length){
+    list.innerHTML = '<div class="empty">No events here. Log the first one with <b>+ Log event</b>.</div>';
+    return;
+  }
+  list.innerHTML = rows.map(e => `
+    <div class="event" data-id="${e.id}" role="button" tabindex="0">
+      <div class="andon ${e.status.replace(' ', '-')}"></div>
+      <div class="event-body">
+        <div class="event-top">
+          <span class="machine-tag">${esc(e.machine)}</span>
+          <span class="etype">${esc(e.type)}</span>
+          <span class="status-pill ${e.status.replace(' ', '-')}">${e.status}</span>
+        </div>
+        <h3>${esc(e.title)}</h3>
+        <div class="event-meta">${e.date} · ${e.time} · reported by ${esc(e.by)} · 💬 ${e.comments.length}${e.photos && e.photos.length ? ' · 📷 ' + e.photos.length : ''}</div>
+      </div>
+    </div>`).join('');
+}
+
+/* ============ detail sheet ============ */
+let openId = null;
+function showDetail(id){
+  openId = id;
+  const e = events.find(x => x.id === id); if(!e) return;
+  const sheet = document.getElementById('detailSheet');
+  sheet.innerHTML = `
+    <div class="sheet-head"><h2>${esc(e.title)}</h2><button class="btn-x" data-close="ovDetail" aria-label="Close">✕</button></div>
+    <div class="d-meta">
+      <span class="machine-tag">${esc(e.machine)}</span>
+      <span class="etype">${esc(e.type)}</span>
+      <span class="status-pill ${e.status.replace(' ', '-')}">${e.status}</span>
+      <span class="event-meta" style="width:100%">${e.date} · ${e.time} · reported by ${esc(e.by)}</span>
+    </div>
+    <div class="d-block"><h4>Problem</h4><p>${esc(e.desc)}</p></div>
+    ${e.sol ? `<div class="d-block sol"><h4>Solution</h4><p>${esc(e.sol)}</p></div>` : ''}
+    ${e.photos && e.photos.length ? `<div class="d-block"><h4>Photos</h4><div class="photo-strip">${e.photos.map((p, i) => `<div class="photo-thumb" data-photo="${i}"><img src="${p}" alt="Event photo ${i + 1}"></div>`).join('')}</div></div>` : ''}
+    <div class="d-actions">
+      ${e.status === 'Open' ? '<button class="act-progress" data-act="progress">Start work</button>' : ''}
+      ${e.status !== 'Closed' ? '<button class="act-close" data-act="close">Mark closed</button>' : ''}
+      ${e.status === 'Closed' ? '<button class="act-reopen" data-act="reopen">Reopen</button>' : ''}
+    </div>
+    <div class="comments">
+      <h4>Team discussion</h4>
+      ${e.comments.map(c => `
+        <div class="comment">
+          <div class="avatar">${esc(c.who.split(' ').map(w => w[0]).join('').slice(0, 2))}</div>
+          <div class="bubble"><span class="who">${esc(c.who)}<span class="when">${esc(c.when)}</span></span><p>${esc(c.text)}</p></div>
+        </div>`).join('') || '<p style="font-size:13px;color:var(--ink-soft)">No comments yet.</p>'}
+      <div class="comment-form">
+        <input id="cInput" placeholder="Write a comment…" maxlength="300">
+        <button id="cSend">Send</button>
+      </div>
+    </div>`;
+  document.getElementById('ovDetail').classList.add('show');
+
+  sheet.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', async () => {
+    const act = b.dataset.act;
+    if(act === 'close'){
+      if(!e.sol){
+        const s = prompt('How was it solved? (saved as the solution)');
+        if(s === null) return;
+        e.sol = s.trim() || '—';
+      }
+      e.status = 'Closed'; toast('✅ Event closed — team notified');
+    }
+    if(act === 'progress'){ e.status = 'In Progress'; toast('Status: In Progress'); }
+    if(act === 'reopen'){ e.status = 'Open'; toast('🔴 Reopened — team notified'); }
+    await store.save(events); render(); showDetail(id);
+  }));
+
+  sheet.querySelectorAll('[data-photo]').forEach(t => t.addEventListener('click', ev => {
+    ev.stopPropagation();
+    const lb = document.getElementById('lightbox');
+    lb.querySelector('img').src = e.photos[Number(t.dataset.photo)];
+    lb.classList.add('show');
+  }));
+
+  const send = async () => {
+    const inp = sheet.querySelector('#cInput');
+    const txt = inp.value.trim(); if(!txt) return;
+    e.comments.push({ who: myName, when: today() + ' ' + new Date().toTimeString().slice(0, 5), text: txt });
+    await store.save(events); render(); showDetail(id);
+  };
+  sheet.querySelector('#cSend').addEventListener('click', send);
+  sheet.querySelector('#cInput').addEventListener('keydown', ev => { if(ev.key === 'Enter') send(); });
+}
+
+/* ============ new event ============ */
+async function saveNew(){
+  const title = document.getElementById('fTitle').value.trim();
+  const desc = document.getElementById('fDesc').value.trim();
+  const machine = document.getElementById('fMachine').value.trim();
+  if(!title){ toast('Add a problem summary'); return; }
+  if(!machine){ toast('Type the machine name'); return; }
+  if(!desc){ toast('Describe what happened'); return; }
+  events.push({
+    id: Date.now(),
+    title,
+    machine,
+    type: document.getElementById('fType').value.trim() || 'Other',
+    date: document.getElementById('fDate').value || today(),
+    time: document.getElementById('fTime').value || new Date().toTimeString().slice(0, 5),
+    desc,
+    sol: document.getElementById('fSol').value.trim(),
+    photos: pendingPhotos,
+    status: 'Open',
+    by: myName,
+    comments: []
+  });
+  await store.save(events);
+  document.getElementById('ovForm').classList.remove('show');
+  ['fTitle', 'fDesc', 'fSol', 'fMachine', 'fType'].forEach(i => document.getElementById(i).value = '');
+  pendingPhotos = [];
+  renderPhotoPreview();
+  refreshDatalists();
+  filter = 'problems';
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.f === 'problems'));
+  render();
+  toast('🔴 Event logged — team notified');
+}
+
+/* ============ wiring ============ */
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  filter = b.dataset.f;
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('active', x === b));
+  render();
+}));
+document.getElementById('searchBox').addEventListener('input', e => { search = e.target.value.toLowerCase(); render(); });
+document.getElementById('btnNew').addEventListener('click', () => {
+  document.getElementById('fDate').value = today();
+  document.getElementById('fTime').value = new Date().toTimeString().slice(0, 5);
+  document.getElementById('ovForm').classList.add('show');
+  document.getElementById('fTitle').focus();
+});
+document.getElementById('btnSave').addEventListener('click', saveNew);
+document.getElementById('fPhotos').addEventListener('change', async e => {
+  for(const f of e.target.files){
+    if(pendingPhotos.length >= 4){ toast('Max 4 photos per event'); break; }
+    const p = await compressImage(f);
+    if(p) pendingPhotos.push(p);
+  }
+  e.target.value = '';
+  renderPhotoPreview();
+});
+document.getElementById('lightbox').addEventListener('click', function(){ this.classList.remove('show'); });
+
+/* team panel */
+document.getElementById('btnTeam').addEventListener('click', () => {
+  document.getElementById('tName').value = myName;
+  document.getElementById('tCode').value = team || '';
+  updateTeamUI();
+  document.getElementById('ovTeam').classList.add('show');
+});
+function grabName(){
+  const n = document.getElementById('tName').value.trim();
+  if(n){ myName = n; saveSettings(); }
+}
+document.getElementById('btnJoin').addEventListener('click', () => {
+  grabName();
+  joinTeam(document.getElementById('tCode').value);
+});
+document.getElementById('btnCreate').addEventListener('click', () => {
+  grabName();
+  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no I/L/O/0/1 — avoids read-aloud confusion
+  const code = Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
+  document.getElementById('tCode').value = code;
+  joinTeam(code);
+});
+document.getElementById('btnLeave').addEventListener('click', leaveTeam);
+document.getElementById('tName').addEventListener('change', () => { grabName(); toast('Name saved'); });
+document.body.addEventListener('click', e => {
+  const closer = e.target.closest('[data-close]');
+  if(closer){ document.getElementById(closer.dataset.close).classList.remove('show'); return; }
+  if(e.target.classList.contains('overlay')){ e.target.classList.remove('show'); return; }
+  const card = e.target.closest('.event');
+  if(card) showDetail(Number(card.dataset.id));
+});
+document.body.addEventListener('keydown', e => {
+  if(e.key === 'Escape') document.querySelectorAll('.overlay.show').forEach(o => o.classList.remove('show'));
+  const card = e.target.closest && e.target.closest('.event');
+  if(card && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); showDetail(Number(card.dataset.id)); }
+});
+
+/* ============ boot ============ */
+(async () => {
+  loadSettings();
+  const saved = await store.load();
+  events = Array.isArray(saved) && saved.length ? saved : seed();
+  await store.save(events);
+  refreshDatalists();
+  render();
+  updateTeamUI();
+  if(team) joinTeam(team); // auto-reconnect to the saved team
+})();
+</script>
+</body>
+</html>
