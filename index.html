@@ -321,7 +321,6 @@ const store = {
   },
   async save(data){
     this.mem = data;
-    try{ if(teamRef){ await teamRef.set(data); } }catch(e){}
     try{ if(window.storage){ await window.storage.set(KEY, JSON.stringify(data)); return; } }catch(e){}
     try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){}
   }
@@ -354,7 +353,13 @@ const FIREBASE_CONFIG = {
 };
 
 const SETTINGS_KEY = 'techlog-settings-v1';
-let myName = 'Sergio S.', team = null, teamRef = null;
+let myName = 'Sergio S.', team = null, teamRef = null, connected = true, connWatch = false;
+
+/* Sync ONE event to the team DB — per-event writes mean two devices can
+   never overwrite each other's whole list (the old bug). */
+async function syncEvent(ev){
+  try{ if(teamRef) await teamRef.child(String(ev.id)).set(ev); }catch(e){}
+}
 
 function loadSettings(){
   try{
@@ -396,14 +401,30 @@ async function joinTeam(codeRaw){
   teamRef = firebase.database().ref('teams/' + code + '/events');
   const snap = await teamRef.once('value');
   const remote = snap.val();
-  if((!remote || !remote.length) && events.length){
-    await teamRef.set(events); // first member seeds the team with their data
+  if(!remote && events.length){
+    // first member seeds the team, one node per event
+    const seedObj = {};
+    events.forEach(ev => { seedObj[String(ev.id)] = ev; });
+    await teamRef.set(seedObj);
   }
   teamRef.on('value', s => {
-    events = s.val() || [];
+    const v = s.val();
+    events = v ? Object.values(v) : [];
+    events.forEach(ev => { if(!ev.comments) ev.comments = []; }); // Firebase drops empty arrays
     refreshDatalists();
     render();
+    // live-refresh the detail sheet if it's open (but never while someone is typing a comment)
+    const detailOpen = document.getElementById('ovDetail').classList.contains('show');
+    const cInp = document.querySelector('#detailSheet #cInput');
+    if(detailOpen && openId && (!cInp || !cInp.value)) showDetail(openId);
   });
+  if(!connWatch){
+    connWatch = true;
+    firebase.database().ref('.info/connected').on('value', s => {
+      connected = !!s.val();
+      updateTeamUI();
+    });
+  }
   saveSettings();
   updateTeamUI();
   toast('Joined team ' + code);
@@ -416,11 +437,14 @@ function leaveTeam(){
   toast('Back to local mode');
 }
 function updateTeamUI(){
-  document.getElementById('teamLabel').textContent = team ? ('Team ' + team + ' · shared data') : 'Local mode — tap to join a team';
-  document.getElementById('teamDot').style.background = team ? '#5BD98A' : '#F2C94C';
+  const online = connected;
+  document.getElementById('teamLabel').textContent = team
+    ? ('Team ' + team + (online ? ' · shared data' : ' · reconnecting…'))
+    : 'Local mode — tap to join a team';
+  document.getElementById('teamDot').style.background = team ? (online ? '#5BD98A' : '#F2994A') : '#F2C94C';
   const st = document.getElementById('teamStatus');
   if(st) st.innerHTML = team
-    ? `<h4>Status</h4><p>Connected to team <b>${esc(team)}</b>. Everyone who joins with this code sees the same events, live.</p>`
+    ? `<h4>Status</h4><p>Connected to team <b>${esc(team)}</b>${online ? '' : ' — <b>offline right now</b>, changes will sync when the connection returns'}. Everyone who joins with this code sees the same events, live.</p>`
     : `<h4>Status</h4><p>Local mode — data lives only on this device. Join or create a team to share.</p>`;
 }
 
@@ -593,7 +617,9 @@ function showDetail(id){
     }
     if(act === 'progress'){ e.status = 'In Progress'; toast('Status: In Progress'); }
     if(act === 'reopen'){ e.status = 'Open'; toast('🔴 Reopened — team notified'); }
-    await store.save(events); render(); showDetail(id);
+    await store.save(events);
+    await syncEvent(e);
+    render(); showDetail(id);
   }));
 
   sheet.querySelectorAll('[data-photo]').forEach(t => t.addEventListener('click', ev => {
@@ -607,7 +633,9 @@ function showDetail(id){
     const inp = sheet.querySelector('#cInput');
     const txt = inp.value.trim(); if(!txt) return;
     e.comments.push({ who: myName, when: today() + ' ' + new Date().toTimeString().slice(0, 5), text: txt });
-    await store.save(events); render(); showDetail(id);
+    await store.save(events);
+    await syncEvent(e);
+    render(); showDetail(id);
   };
   sheet.querySelector('#cSend').addEventListener('click', send);
   sheet.querySelector('#cInput').addEventListener('keydown', ev => { if(ev.key === 'Enter') send(); });
@@ -621,7 +649,7 @@ async function saveNew(){
   if(!title){ toast('Add a problem summary'); return; }
   if(!machine){ toast('Type the machine name'); return; }
   if(!desc){ toast('Describe what happened'); return; }
-  events.push({
+  const newEv = {
     id: Date.now(),
     title,
     machine,
@@ -634,8 +662,10 @@ async function saveNew(){
     status: 'Open',
     by: myName,
     comments: []
-  });
+  };
+  events.push(newEv);
   await store.save(events);
+  await syncEvent(newEv);
   document.getElementById('ovForm').classList.remove('show');
   ['fTitle', 'fDesc', 'fSol', 'fMachine', 'fType'].forEach(i => document.getElementById(i).value = '');
   pendingPhotos = [];
