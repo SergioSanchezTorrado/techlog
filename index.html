@@ -165,6 +165,8 @@
   .d-actions .act-progress{color:var(--amber);border-color:#EBD4B4}
   .d-actions .act-close{color:var(--ok);border-color:#BFE0C8}
   .d-actions .act-reopen{color:var(--alarm);border-color:#EFC7C2}
+  .d-actions .act-del{color:var(--ink-soft);flex:0 0 auto;padding:9px 14px}
+  .d-actions .act-del:hover{color:var(--alarm);border-color:#EFC7C2}
 
   /* comments */
   .comments h4{font-family:var(--font-display);font-size:14px;font-weight:700;margin:16px 0 8px;padding-top:14px;border-top:1px solid var(--line)}
@@ -233,6 +235,7 @@
   <div class="toolbar">
     <div class="tabs" role="tablist">
       <button class="active" data-f="problems" role="tab">Problems</button>
+      <button data-f="progress" role="tab">In Progress</button>
       <button data-f="all" role="tab">All</button>
       <button data-f="closed" role="tab">Closed</button>
     </div>
@@ -244,7 +247,7 @@
   <div class="event-list" id="list"></div>
 </main>
 
-<footer>PROTOTYPE v0.1 — data stays on this device. Built for demo purposes.</footer>
+<footer>TechLog PROTOTYPE — local mode keeps data on this device; team mode shares it live with your group.</footer>
 
 <!-- New event sheet -->
 <div class="overlay" id="ovForm">
@@ -253,7 +256,7 @@
       <h2>Log new event</h2>
       <button class="btn-x" data-close="ovForm" aria-label="Close">✕</button>
     </div>
-    <div class="field"><label>Problem summary</label><input id="fTitle" maxlength="90" placeholder="e.g. Chiller 2 temperature alarm"></div>
+    <div class="field"><label>Problem summary</label><input id="fTitle" maxlength="90"></div>
     <div class="row2">
       <div class="field"><label>Date</label><input id="fDate" type="date"></div>
       <div class="field"><label>Hour</label><input id="fTime" type="time"></div>
@@ -290,9 +293,9 @@
       <h2>Team</h2>
       <button class="btn-x" data-close="ovTeam" aria-label="Close">✕</button>
     </div>
-    <div class="field"><label>Your name (shown on reports & comments)</label><input id="tName" maxlength="30" placeholder="e.g. Sergio S."></div>
+    <div class="field"><label>Your name (shown on reports & comments)</label><input id="tName" maxlength="30" ></div>
     <div class="d-block" id="teamStatus"></div>
-    <div class="field"><label>Team code</label><input id="tCode" maxlength="8" placeholder="e.g. VIA123" style="text-transform:uppercase" autocomplete="off"></div>
+    <div class="field"><label>Team code</label><input id="tCode" maxlength="8" style="text-transform:uppercase" autocomplete="off"></div>
     <div class="d-actions" style="margin-top:4px">
       <button class="act-close" id="btnJoin">Join team</button>
       <button id="btnCreate">Create new team</button>
@@ -353,7 +356,7 @@ const FIREBASE_CONFIG = {
 };
 
 const SETTINGS_KEY = 'techlog-settings-v1';
-let myName = 'Sergio S.', team = null, teamRef = null, connected = true, connWatch = false;
+let myName = '', team = null, teamRef = null, connected = true, connWatch = false;
 
 /* Sync ONE event to the team DB — per-event writes mean two devices can
    never overwrite each other's whole list (the old bug). */
@@ -440,7 +443,7 @@ function updateTeamUI(){
   const online = connected;
   document.getElementById('teamLabel').textContent = team
     ? ('Team ' + team + (online ? ' · shared data' : ' · reconnecting…'))
-    : 'Local mode — tap to join a team';
+    : 'Tap to join a team';
   document.getElementById('teamDot').style.background = team ? (online ? '#5BD98A' : '#F2994A') : '#F2C94C';
   const st = document.getElementById('teamStatus');
   if(st) st.innerHTML = team
@@ -455,7 +458,7 @@ let filter = 'problems';
 let search = '';
 let pendingPhotos = [];
 
-const DEFAULT_MACHINES = ['Chiller 2 (CH-02)', 'HVAC Unit 1 (AHU-01)', 'Purified Water Loop (PW-01)', 'Compressor A (CMP-A)', 'Autoclave 3 (AC-03)', 'Tablet Press 5 (TP-05)'];
+const DEFAULT_MACHINES = [];
 const DEFAULT_TYPES = ['Breakdown', 'Alarm', 'Preventive maintenance', 'Calibration', 'Inspection'];
 
 function refreshDatalists(){
@@ -494,38 +497,21 @@ function renderPhotoPreview(){
   }));
 }
 
-const seed = () => ([
-  {
-    id: 1, title: 'Chiller 2 high temperature alarm', machine: 'Chiller 2 (CH-02)', type: 'Alarm',
-    date: today(-1), time: '06:40', desc: 'Supply water temp reached 9.8 °C during night shift. Alarm triggered twice, auto-reset both times.',
-    sol: '', status: 'Open', by: 'M. Rivera',
-    comments: [
-      { who: 'M. Rivera', when: today(-1) + ' 06:52', text: 'Logged from the floor. Second time this week.' },
-      { who: 'L. Ortiz', when: today(-1) + ' 07:15', text: 'Could be the condenser fan again. I can check after lunch.' }
-    ]
-  },
-  {
-    id: 2, title: 'AHU-01 filter differential pressure high', machine: 'HVAC Unit 1 (AHU-01)', type: 'Preventive maintenance',
-    date: today(-2), time: '14:10', desc: 'ΔP across pre-filters above 250 Pa. Scheduled replacement needed before it affects room pressure cascade.',
-    sol: 'Replace pre-filter bank, verify ΔP < 120 Pa after swap.', status: 'In Progress', by: 'L. Ortiz',
-    comments: [{ who: 'J. Meléndez', when: today(-2) + ' 15:03', text: 'Filters are in stock, rack B4.' }]
-  },
-  {
-    id: 3, title: 'Autoclave 3 door gasket leak', machine: 'Autoclave 3 (AC-03)', type: 'Breakdown',
-    date: today(-6), time: '09:25', desc: 'Steam visible at door seal during sterilization cycle. Cycle aborted.',
-    sol: 'Replaced door gasket (P/N GSK-3310), ran empty validation cycle — passed.', status: 'Closed', by: 'Sergio S.',
-    comments: [
-      { who: 'Sergio S.', when: today(-6) + ' 09:40', text: 'Tagged out. Gasket visibly cracked.' },
-      { who: 'M. Rivera', when: today(-5) + ' 11:20', text: 'Validation cycle passed, releasing back to production.' }
-    ]
-  }
-]);
-
 function today(offsetDays = 0){
   const d = new Date(); d.setDate(d.getDate() + offsetDays);
   return d.toISOString().slice(0, 10);
 }
 function esc(s){ const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function fmtDate(iso){
+  if(!iso) return '';
+  const [y, m, d] = String(iso).split('-');
+  return (m && d && y) ? `${m}/${d}/${y}` : iso;
+}
+function fmtWhen(w){ // stored as "yyyy-mm-dd HH:MM"
+  if(!w) return '';
+  const [d, t] = String(w).split(' ');
+  return fmtDate(d) + (t ? ' ' + t : '');
+}
 function toast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
@@ -541,7 +527,11 @@ function counts(){
 
 function visible(){
   return events
-    .filter(e => filter === 'all' ? true : filter === 'closed' ? e.status === 'Closed' : e.status !== 'Closed')
+    .filter(e =>
+      filter === 'all' ? true
+      : filter === 'closed' ? e.status === 'Closed'
+      : filter === 'progress' ? e.status === 'In Progress'
+      : e.status === 'Open')
     .filter(e => !search || (e.title + ' ' + e.machine + ' ' + e.desc).toLowerCase().includes(search))
     .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
 }
@@ -564,7 +554,7 @@ function render(){
           <span class="status-pill ${e.status.replace(' ', '-')}">${e.status}</span>
         </div>
         <h3>${esc(e.title)}</h3>
-        <div class="event-meta">${e.date} · ${e.time} · reported by ${esc(e.by)} · 💬 ${e.comments.length}${e.photos && e.photos.length ? ' · 📷 ' + e.photos.length : ''}</div>
+        <div class="event-meta">${fmtDate(e.date)} · ${e.time} · reported by ${esc(e.by)}${e.status === 'In Progress' && e.startedBy ? ' · started by ' + esc(e.startedBy) : ''} · ${e.comments.length ? e.comments.length + ' message' + (e.comments.length === 1 ? '' : 's') : 'no messages'}${e.photos && e.photos.length ? ' · ' + e.photos.length + ' photo' + (e.photos.length === 1 ? '' : 's') : ''}</div>
       </div>
     </div>`).join('');
 }
@@ -581,7 +571,7 @@ function showDetail(id){
       <span class="machine-tag">${esc(e.machine)}</span>
       <span class="etype">${esc(e.type)}</span>
       <span class="status-pill ${e.status.replace(' ', '-')}">${e.status}</span>
-      <span class="event-meta" style="width:100%">${e.date} · ${e.time} · reported by ${esc(e.by)}</span>
+      <span class="event-meta" style="width:100%">${fmtDate(e.date)} · ${e.time} · reported by ${esc(e.by)}${e.status === 'In Progress' && e.startedBy ? ' · started by ' + esc(e.startedBy) : ''}</span>
     </div>
     <div class="d-block"><h4>Problem</h4><p>${esc(e.desc)}</p></div>
     ${e.sol ? `<div class="d-block sol"><h4>Solution</h4><p>${esc(e.sol)}</p></div>` : ''}
@@ -590,13 +580,14 @@ function showDetail(id){
       ${e.status === 'Open' ? '<button class="act-progress" data-act="progress">Start work</button>' : ''}
       ${e.status !== 'Closed' ? '<button class="act-close" data-act="close">Mark closed</button>' : ''}
       ${e.status === 'Closed' ? '<button class="act-reopen" data-act="reopen">Reopen</button>' : ''}
+      <button class="act-del" data-act="delete">Delete</button>
     </div>
     <div class="comments">
       <h4>Team discussion</h4>
       ${e.comments.map(c => `
         <div class="comment">
           <div class="avatar">${esc(c.who.split(' ').map(w => w[0]).join('').slice(0, 2))}</div>
-          <div class="bubble"><span class="who">${esc(c.who)}<span class="when">${esc(c.when)}</span></span><p>${esc(c.text)}</p></div>
+          <div class="bubble"><span class="who">${esc(c.who)}<span class="when">${esc(fmtWhen(c.when))}</span></span><p>${esc(c.text)}</p></div>
         </div>`).join('') || '<p style="font-size:13px;color:var(--ink-soft)">No comments yet.</p>'}
       <div class="comment-form">
         <input id="cInput" placeholder="Write a comment…" maxlength="300">
@@ -607,16 +598,26 @@ function showDetail(id){
 
   sheet.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', async () => {
     const act = b.dataset.act;
+    if(act === 'delete'){
+      if(!confirm('Delete this event for the whole team? This cannot be undone.')) return;
+      events = events.filter(x => x.id !== id);
+      await store.save(events);
+      try{ if(teamRef) await teamRef.child('e' + String(id)).remove(); }catch(err){}
+      document.getElementById('ovDetail').classList.remove('show');
+      toast('Event deleted');
+      render();
+      return;
+    }
     if(act === 'close'){
       if(!e.sol){
         const s = prompt('How was it solved? (saved as the solution)');
         if(s === null) return;
         e.sol = s.trim() || '—';
       }
-      e.status = 'Closed'; toast('✅ Event closed — team notified');
+      e.status = 'Closed'; toast('Event closed — team notified');
     }
-    if(act === 'progress'){ e.status = 'In Progress'; toast('Status: In Progress'); }
-    if(act === 'reopen'){ e.status = 'Open'; toast('🔴 Reopened — team notified'); }
+    if(act === 'progress'){ e.status = 'In Progress'; e.startedBy = myName; toast('Status: In Progress'); }
+    if(act === 'reopen'){ e.status = 'Open'; e.startedBy = ''; toast('Reopened — team notified'); }
     await store.save(events);
     await syncEvent(e);
     render(); showDetail(id);
@@ -632,7 +633,7 @@ function showDetail(id){
   const send = async () => {
     const inp = sheet.querySelector('#cInput');
     const txt = inp.value.trim(); if(!txt) return;
-    e.comments.push({ who: myName, when: today() + ' ' + new Date().toTimeString().slice(0, 5), text: txt });
+    e.comments.push({ who: myName || 'Unknown', when: today() + ' ' + new Date().toTimeString().slice(0, 5), text: txt });
     await store.save(events);
     await syncEvent(e);
     render(); showDetail(id);
@@ -660,7 +661,7 @@ async function saveNew(){
     sol: document.getElementById('fSol').value.trim(),
     photos: pendingPhotos,
     status: 'Open',
-    by: myName,
+    by: myName || 'Unknown',
     comments: []
   };
   events.push(newEv);
@@ -674,7 +675,7 @@ async function saveNew(){
   filter = 'problems';
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.f === 'problems'));
   render();
-  toast('🔴 Event logged — team notified');
+  toast('Event logged — team notified');
 }
 
 /* ============ wiring ============ */
@@ -715,10 +716,12 @@ function grabName(){
 }
 document.getElementById('btnJoin').addEventListener('click', () => {
   grabName();
+  if(!myName){ toast('Enter your name first'); return; }
   joinTeam(document.getElementById('tCode').value);
 });
 document.getElementById('btnCreate').addEventListener('click', () => {
   grabName();
+  if(!myName){ toast('Enter your name first'); return; }
   const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no I/L/O/0/1 — avoids read-aloud confusion
   const code = Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
   document.getElementById('tCode').value = code;
@@ -743,7 +746,7 @@ document.body.addEventListener('keydown', e => {
 (async () => {
   loadSettings();
   const saved = await store.load();
-  events = Array.isArray(saved) && saved.length ? saved : seed();
+  events = Array.isArray(saved) ? saved : [];
   await store.save(events);
   refreshDatalists();
   render();
