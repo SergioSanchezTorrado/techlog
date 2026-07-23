@@ -31,12 +31,14 @@
 
   /* ---------- Header ---------- */
   header{
-    background:var(--blue-deep);
+    background:linear-gradient(100deg,#241C86 0%,#3A2A9E 26%,#7B3A9E 52%,#C25F7A 68%,#DE8A55 84%,#D8C24A 100%);
     color:#fff;
     padding:14px 20px;
     display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
   }
   .brand{display:flex;align-items:center;gap:12px}
+  .brand-logo{height:34px;width:auto;display:none;flex:none}
+  .brand-logo.on{display:block}
   .brand-mark{
     font-family:var(--font-mono);font-weight:600;font-size:13px;
     border:1.5px solid rgba(255,255,255,.55);border-radius:6px;
@@ -225,7 +227,10 @@
 
 <header>
   <div class="brand">
-    <div class="brand-mark">TL-01</div>
+    <img class="brand-logo" id="brandLogo" src="logo.png" alt=""
+         onload="this.classList.add('on');document.getElementById('brandMark').style.display='none'"
+         onerror="this.remove()">
+    <div class="brand-mark" id="brandMark">TL-01</div>
     <div>
       <h1>TechLog</h1>
       <small>Equipment Event Log · Maintenance Team</small>
